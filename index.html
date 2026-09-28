@@ -1,7 +1,11 @@
 <!DOCTYPE html>
-<html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Diretoria Comercial — Gerados diário</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<!-- Biblioteca para leitura de arquivos Excel (.xlsx) -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
   :root{
     --green-dark: #006B3F;
@@ -29,7 +33,7 @@
     padding:6px 10px;
     overflow-x: hidden;
   }
-  .wrap{max-width:1380px;margin:0 auto;}
+  .wrap{max-width:1440px;margin:0 auto;}
 
   .topbar{
     display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;
@@ -59,8 +63,6 @@
   .btn:hover{background:var(--green-dark);}
   .btn.secondary{background:#fff;color:var(--green-dark);border:1.5px solid var(--line);}
   .btn.secondary:hover{background:var(--green-light);border-color:var(--green);}
-  .btn.accent{background:#fff;color:var(--green-dark);border:2px solid var(--green);}
-  .btn.accent:hover{background:var(--green-light);}
 
   #fileInput{display:none;}
   .file-status{
@@ -68,19 +70,9 @@
     font-size:10px;color:var(--muted);white-space:nowrap;
   }
 
-  .tabs{
-    display:flex;gap:6px;margin-bottom:6px;border-bottom:2px solid var(--line);padding-bottom:4px;
-  }
-  .tab-btn{
-    background:transparent;border:none;padding:4px 12px;font-size:11.5px;font-weight:700;
-    color:var(--muted);cursor:pointer;border-radius:5px;transition:all .15s;
-  }
-  .tab-btn.active{
-    background:var(--green);color:#fff;
-  }
-
   .grid-top{
-    display:grid;grid-template-columns:minmax(240px, 320px) minmax(0, 1fr);gap:6px;margin-bottom:6px;
+    display:grid;grid-template-columns:minmax(280px, 340px) minmax(0, 1fr);gap:6px;margin-bottom:6px;
+    align-items:start;
   }
   .col-left{
     display:flex;flex-direction:column;gap:6px;min-width:0;
@@ -93,7 +85,6 @@
   .kpi-row{display:flex;gap:8px;margin-bottom:4px;}
   .kpi{flex:1;}
   .kpi .num{font-size:18px;font-weight:800;color:var(--green-dark);line-height:1;}
-  .kpi .num.negative{color:#d32f2f;}
   .kpi .lbl{font-size:10px;color:var(--muted);margin-top:1px;font-weight:600;}
   .kpi-divider{width:1px;background:var(--line);}
 
@@ -104,130 +95,93 @@
     background:var(--green);color:#fff;padding:4px 2px;font-size:9.5px;
     text-align:center;font-weight:700;
   }
-  table.spi-table th:first-child{text-align:center;}
   table.spi-table td{padding:3px 2px;text-align:center;border-bottom:1px solid var(--line);cursor:pointer;}
   table.spi-table td:first-child{text-align:left;font-weight:700;color:var(--green-dark);padding-left:6px;}
   table.spi-table tr:hover td{background:#f1f7f4;}
   table.spi-table tr.total-row td{background:var(--green-light);font-weight:800;color:var(--green-dark);border-top:2px solid var(--green);}
   .gap-cell{border-radius:4px;font-weight:700;padding:1px 2px;display:inline-block;min-width:32px;font-size:9.5px;color:#1c2b22;}
 
-  .chart-card{padding:6px 10px 2px;position:relative;display:flex;flex-direction:column;min-width:0;}
+  .chart-card{padding:6px 10px 2px;position:relative;display:flex;flex-direction:column;min-width:0;height:330px;overflow:hidden;}
   .chart-card h3{margin:0 0 2px;font-size:11.5px;color:var(--ink);font-weight:700;}
-  .chart-wrap{flex:1;min-height:165px;min-width:0;position:relative;}
+  .chart-wrap{flex:1;min-height:0;position:relative;}
 
-  .grid-bottom{
-    display:grid;
-    grid-template-columns:minmax(0, 1fr) minmax(280px, 360px);
-    gap:6px;
-    align-items:start;
-  }
-  .matrix-card{
-    padding:6px 10px;
-    overflow-x:auto; 
-    -webkit-overflow-scrolling:touch;
-    min-width:0;
-    width:100%;
-  }
+  .grid-bottom{display:grid;grid-template-columns:minmax(0, 1fr);gap:6px;}
+  .matrix-card{padding:6px 10px;overflow-x:auto; -webkit-overflow-scrolling:touch;min-width:0;}
   .matrix-card h3{margin:0 0 4px;font-size:11.5px;color:var(--ink);font-weight:700;}
 
+  /* ESTRUTURA FIXA DA TABELA DE GERADOS POR DIA */
   table.matrix{
     border-collapse:collapse;
-    font-size:10px;
-    width:max-content;
-    min-width:100%;
+    font-size:10.5px;
+    table-layout: fixed;
+    width: max-content;
+  }
+  table.matrix th, table.matrix td {
+    box-sizing: border-box;
   }
   table.matrix th{
     background:var(--green);
     color:#fff;
-    padding:3px 2px;
+    padding:3px 0;
     font-weight:700;
     font-size:9px;
     text-align:center;
-    white-space:nowrap;
   }
-  table.matrix th:first-child, 
-  table.matrix td:first-child{
+  /* Coluna da Diretoria/Regional */
+  table.matrix th:first-child, table.matrix td:first-child{
     text-align:left;
-    padding-left:6px;
-    padding-right:6px;
-    width:145px;
-    min-width:145px;
+    padding-left:6px !important;
+    width:160px !important;
+    min-width:160px !important;
+    max-width:160px !important;
     white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
   }
+  /* Colunas de Dias com tamanho idêntico e mais espaçoso */
   table.matrix th:not(:first-child):not(:last-child),
   table.matrix td:not(:first-child):not(:last-child) {
-    width:27px;
-    min-width:27px;
-    white-space:nowrap;
-    padding:3px 1px;
-    text-align:center;
+    width: 36px !important;
+    min-width: 36px !important;
+    max-width: 36px !important;
+    padding: 3px 0 !important;
+    text-align: center !important;
+    font-size: 10px !important;
   }
-  table.matrix th:last-child, 
-  table.matrix td:last-child {
-    width:40px;
-    min-width:40px;
-    text-align:center;
+  /* Coluna de Total */
+  table.matrix th:last-child, table.matrix td:last-child {
+    width: 48px !important;
+    min-width: 48px !important;
+    max-width: 48px !important;
+    text-align: center;
   }
 
   table.matrix td{
-    padding:2px 0;
-    text-align:center;
+    padding:3px 0;
     border-bottom:1px solid var(--line);
     color:var(--ink);
     font-weight:600;
-    font-size:9.5px;
   }
   table.matrix td:first-child{font-weight:700;color:var(--green-dark);}
   table.matrix tr.total-row td{background:var(--green-light);font-weight:800;border-top:2px solid var(--green);}
   table.matrix td.total-col{font-weight:800;background:#f4f7f5;}
 
-  .week-card{padding:6px 10px;overflow-x:auto; -webkit-overflow-scrolling:touch;min-width:0;}
+  .week-card{padding:6px 10px;overflow-x:auto; -webkit-overflow-scrolling:touch;min-width:0;max-width:760px;margin-top:6px;}
   .week-card h3{margin:0 0 4px;font-size:11.5px;color:var(--ink);font-weight:700;}
-  table.week{width:100%;border-collapse:collapse;font-size:10.5px;min-width:280px;}
-  table.week th{background:var(--green);color:#fff;padding:3px 2px;font-weight:700;font-size:9.5px;}
-  table.week th:first-child{text-align:left;padding-left:6px;min-width:135px;}
-  table.week td{padding:3px 2px;text-align:center;border-bottom:1px solid var(--line);}
-  table.week td:first-child{text-align:left;font-weight:700;color:var(--green-dark);padding-left:6px;}
+  table.week{width:100%;border-collapse:collapse;font-size:10.5px;min-width:0 !important;}
+  table.week th{background:var(--green);color:#fff;padding:4px 6px !important;font-weight:700;font-size:9.5px;}
+  table.week th:first-child, table.week td:first-child{text-align:left;padding-left:6px;white-space:nowrap;min-width:110px;}
+  table.week td{padding:4px 6px !important;text-align:center;border-bottom:1px solid var(--line);}
+  table.week td:first-child{font-weight:700;color:var(--green-dark);}
   table.week tr.total-row td{background:var(--green-light);font-weight:800;border-top:2px solid var(--green);}
-
-  .team-count-badge{background:var(--green-light);color:var(--green-dark);font-size:9.5px;font-weight:700;padding:1px 7px;border-radius:10px;}
-  .team-section{margin-bottom:0 !important;}
-
-  .team-tree-root{font-size:11px;}
-  .team-tree-root details{margin:0;}
-  .team-tree-root summary{display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;list-style:none;outline:none;}
-  .team-tree-root summary::-webkit-details-marker{display:none;}
-  .team-lvl-label::before{content:'▸';display:inline-block;margin-right:6px;font-size:9px;color:var(--muted);transition:transform .15s;}
-  .team-tree-root details[open] > summary .team-lvl-label::before{transform:rotate(90deg);}
-  .team-lvl-total{font-size:10px;font-weight:800;color:var(--muted);flex:none;}
-
-  details.team-lvl-regional{border-top:1.5px solid var(--green);margin-top:6px;padding-top:2px;}
-  details.team-lvl-regional:first-child{margin-top:0;}
-  details.team-lvl-regional > summary{padding:6px 6px;background:#eef4f0;border-radius:4px;}
-  details.team-lvl-regional > summary .team-lvl-label{font-weight:800;font-size:10.5px;text-transform:uppercase;letter-spacing:.02em;color:var(--green-dark);}
-
-  details.team-lvl-canal{margin:3px 0 3px 16px;}
-  details.team-lvl-canal > summary{padding:4px 6px;background:#f2f6fb;border-radius:4px;}
-  details.team-lvl-canal > summary .team-lvl-label{font-weight:700;font-size:10.5px;color:#2554a8;}
-
-  details.team-lvl-pessoa{margin:2px 0 2px 16px;}
-  details.team-lvl-pessoa > summary{padding:3px 6px;}
-  details.team-lvl-pessoa > summary .team-lvl-label{font-weight:600;font-size:10.5px;color:var(--ink);}
-
-  .team-grand-total{margin-top:8px;padding:6px 8px;background:var(--green-light);border-radius:5px;font-weight:800;color:var(--green-dark);text-align:right;font-size:11px;}
-  .team-empty-msg{color:var(--muted);font-size:11px;padding:10px 4px;}
 
   .status-mini{display:flex;gap:6px;margin-top:4px;padding-top:4px;border-top:1px solid var(--line);}
   .status-mini div{text-align:center;flex:1;cursor:pointer;padding:2px 3px;border-radius:4px;transition:background .15s;}
   .status-mini .n{font-size:12px;font-weight:800;color:var(--green-dark);}
   .status-mini .l{font-size:9px;color:var(--muted);font-weight:600;}
-  
   .status-mini .n.share-val { font-size: 10px; font-weight: 700; color: var(--muted); }
-  .status-mini .l.share-lbl { font-size: 8px; color: var(--muted); }
 
-  .empty-state{
-    text-align:center;padding:40px 20px;color:var(--muted);
-  }
+  .empty-state{text-align:center;padding:40px 20px;color:var(--muted);}
   .empty-state h2{color:var(--green-dark);font-size:15px;margin:0 0 4px;}
   .empty-state p{font-size:11.5px;max-width:360px;margin:0 auto;}
 
@@ -237,35 +191,42 @@
     display:none;align-items:center;gap:6px;
   }
 
+  .caret{cursor:pointer;display:inline-block;width:13px;color:var(--green-dark);font-weight:700}
+  .reg-row td{background:#f7faf8;color:#3b4d42;font-size:10px}.reg-row td:first-child{padding-left:20px !important}
+  .note{font-size:10px;color:var(--muted);margin:4px 2px}
+
   @media (max-width: 850px) {
     body { padding: 4px; }
-    .grid-top, .grid-bottom { grid-template-columns: 1fr; }
+    .grid-top { grid-template-columns: 1fr; }
+    .chart-card { position: static; height: 300px; }
     .actions { width: 100%; flex-direction: column; align-items: stretch; }
-    .actions .btn, .actions .upload-group { width: 100%; }
+    .actions .btn { width: 100%; }
     .file-status { position: relative; top: auto; right: auto; margin-top: 2px; text-align: center; display: block; }
-    .btn { height: 38px; font-size: 12px; }
-    .chart-wrap { min-height: 180px; }
   }
-
-  .caret{cursor:pointer;display:inline-block;width:13px;color:var(--green-dark);font-weight:700}
-  .reg-row td{background:#f7faf8;color:#3b4d42;font-size:10px}.reg-row td:first-child{padding-left:20px}
-  .meta-in{width:54px;height:20px;border:1px solid var(--line);border-radius:4px;text-align:center;font:inherit;font-size:10px}
-  .note{font-size:10px;color:var(--muted);margin:4px 2px}
 </style>
-</head><body>
+</head>
+<body>
 <div class="wrap">
   <div class="topbar">
     <div class="brand"><div class="brand-badge">DIR</div><div><h1>Diretoria Comercial</h1><p>Gerados diário</p></div></div>
     <div class="actions">
-      <button class="btn secondary" id="planBtn" type="button">⭱ Planejamento</button><input type="file" id="planInput" accept=".json" style="display:none"><button class="btn secondary" id="exportXmlBtn" type="button">⬇ Baixar XML</button>
-      <div class="upload-group"><button class="btn" id="uploadBtn" type="button">⭱ Carregar XML</button>
-      <input type="file" id="fileInput" accept=".xml"><div class="file-status" id="fileStatus">Atualizado em: —</div></div>
+      <div class="upload-group">
+        <button class="btn" id="uploadBtn" type="button">⭱ Carregar XML</button>
+        <input type="file" id="fileInput" accept=".xml">
+        <div class="file-status" id="fileStatus">Atualizado em: —</div>
+      </div>
     </div>
   </div>
+
   <div class="warn-banner" id="unmappedWarning" style="display:none;"></div>
-  <div id="emptyState" class="card empty-state" style="display:block;"><h2>Nenhum dado carregado ainda</h2><p>Buscando o XML na mesma pasta ou selecione um arquivo XML...</p></div>
+  
+  <div id="emptyState" class="card empty-state" style="display:block;">
+    <h2>Nenhum dado carregado ainda</h2>
+    <p>Buscando o XML na mesma pasta ou selecione um arquivo XML...</p>
+  </div>
+
   <div id="tabDashContent">
-<div id="dashboard" style="display:none;">
+    <div id="dashboard" style="display:none;">
       <div id="filterBanner" style="display:none; background:var(--green-light); border:1px solid var(--green); padding:4px 8px; border-radius:5px; margin-bottom:6px; font-size:11px; font-weight:700; color:var(--green-dark); justify-content:space-between; align-items:center;">
         <span id="filterBannerText">Filtrando</span>
         <button class="btn secondary" style="height:22px; padding:0 6px; font-size:10px;" onclick="clearFilters()">Remover Filtros</button>
@@ -287,30 +248,30 @@
               <div class="kpi"><div class="num" id="kpiVendasDia">0</div><div class="lbl">Vendas/Dia (Restantes)</div></div>
             </div>
             <div class="status-mini">
-              <div id="statBoxAtivo" onclick="selectedStatusFilter = (selectedStatusFilter === 'Ativo') ? null : 'Ativo'; render();" style="background: transparent;">
+              <div id="statBoxAtivo" onclick="selectedStatusFilter = (selectedStatusFilter === 'Ativo') ? null : 'Ativo'; render();">
                 <div class="n" id="statAtivo">0</div><div class="l">Ativo</div>
               </div>
-              <div id="statBoxPreAtivo" onclick="selectedStatusFilter = (selectedStatusFilter === 'Pré-Ativo') ? null : 'Pré-Ativo'; render();" style="background: transparent;">
+              <div id="statBoxPreAtivo" onclick="selectedStatusFilter = (selectedStatusFilter === 'Pré-Ativo') ? null : 'Pré-Ativo'; render();">
                 <div class="n" id="statPreAtivo">0</div><div class="l">Pré-Ativo</div>
               </div>
-              <div id="statBoxRascunho" onclick="selectedStatusFilter = (selectedStatusFilter === 'Rascunho') ? null : 'Rascunho'; render();" style="background: transparent;">
+              <div id="statBoxRascunho" onclick="selectedStatusFilter = (selectedStatusFilter === 'Rascunho') ? null : 'Rascunho'; render();">
                 <div class="n" id="statRascunho">0</div><div class="l">Rascunho</div>
               </div>
-              <div id="statBoxTotal" onclick="selectedStatusFilter = null; render();" style="background: rgb(209, 231, 221);">
+              <div id="statBoxTotal" onclick="selectedStatusFilter = null; render();">
                 <div class="n" id="statTotal">0</div><div class="l">Total</div>
               </div>
             </div>
             <div class="status-mini" style="margin-top:4px;">
-              <div id="statBoxHouse" onclick="selectedChannelFilter = (selectedChannelFilter === 'HOUSE') ? null : 'HOUSE'; render();" style="background: transparent;">
+              <div id="statBoxHouse" onclick="selectedChannelFilter = (selectedChannelFilter === 'HOUSE') ? null : 'HOUSE'; render();">
                 <div class="n" id="statHouse">0</div><div class="l">House <span id="statShareHouse" class="share-val" style="display:block;">(0,0%)</span></div>
               </div>
-              <div id="statBoxImob" onclick="selectedChannelFilter = (selectedChannelFilter === 'IMOB') ? null : 'IMOB'; render();" style="background: transparent;">
+              <div id="statBoxImob" onclick="selectedChannelFilter = (selectedChannelFilter === 'IMOB') ? null : 'IMOB'; render();">
                 <div class="n" id="statImob">0</div><div class="l">Imob <span id="statShareImob" class="share-val" style="display:block;">(0,0%)</span></div>
               </div>
-              <div id="statBoxAGS" onclick="selectedChannelFilter = (selectedChannelFilter === 'AGS') ? null : 'AGS'; render();" style="background: transparent;">
+              <div id="statBoxAGS" onclick="selectedChannelFilter = (selectedChannelFilter === 'AGS') ? null : 'AGS'; render();">
                 <div class="n" id="statAGS">0</div><div class="l">AGS <span id="statShareAGS" class="share-val" style="display:block;">(0,0%)</span></div>
               </div>
-              <div id="statBoxCanalTodos" onclick="selectedChannelFilter = null; render();" style="background: rgb(209, 231, 221);">
+              <div id="statBoxCanalTodos" onclick="selectedChannelFilter = null; render();">
                 <div class="n" id="statCanalTodos">0</div><div class="l">Todos <span class="share-val" style="display:block; visibility:hidden;">(100%)</span></div>
               </div>
             </div>
@@ -346,81 +307,74 @@
           <table class="week" id="weekTable"></table>
         </div>
       </div>
-    <div class="note" id="deptNote">▸ Clique na seta para abrir as regionais. Empreendimentos atendidos por mais de uma regional/diretoria aparecem em cada uma; o Total conta cada contrato uma única vez. Metas: digite na coluna Meta de cada diretoria (salvas neste navegador, por mês).</div>
+      <div class="note" id="deptNote">▸ Clique na seta para abrir as regionais (a diretoria é a soma das regionais). Cada empreendimento vai para uma única regional, a regional que tem meta no planejamento.json (se houver mais de uma, a primeira do De-Para), e só aparecem regionais com empreendimentos no XML. Metas e % diários vêm do planejamento.json.</div>
     </div>
   </div>
 </div>
 
 <script>
 const XML_NAME='{DEDBD38E-D54E-DF11-AD89-001B78B9D994}';
-const WEEKDAY_WEIGHTS = {0:0.145, 1:0.155, 2:0.165, 3:0.150, 4:0.170, 5:0.175, 6:0.040};
-const QUARTER_WEIGHTS = {1:0.15, 2:0.25, 3:0.25, 4:0.35};
+const WEEKDAY_WEIGHTS={0:0.029052623,1:0.030025096,2:0.030146655,3:0.030632892,4:0.032820955,5:0.032456278,6:0.003889891};
+const QUARTER_WEIGHTS={1:1,2:1.240143390,3:1.304659486,4:1.745519703};
 const DIR_ORDER=['DIRETORIA SPI','DIRETORIA SUDESTE','DIRETORIA NE','DIRETORIA SP','DIRETORIA SUL','DIRETORIA CO E AM'];
 
-let DEPARA = { map: {} };
-let DIR_REGS = {};
-let deparaPromise = null;
+let EXCEL_DEPARA_MAP = {}; // Mapeamento dinâmico do Excel: EMPREENDIMENTO -> Array de {dir, reg}
+let PRES={}, metas={}, pdvPcts={}, PLAN={}, openDirs=new Set(), selectedDirFilter=null;
+let selectedStatusFilter=null, selectedChannelFilter=null, currentRecords=[], currentXmlText='';
+const DIR_REGS={}; DIR_ORDER.forEach(d => DIR_REGS[d] = new Set());
 
-function loadDeparaFromExcel() {
-  if (!deparaPromise) {
-    deparaPromise = (async () => {
-      try {
-        const res = await fetch('depara diretoria.xlsx?t=' + Date.now());
-        if (!res.ok) throw new Error('Falha ao carregar depara diretoria.xlsx');
-        const arrayBuffer = await res.arrayBuffer();
-        const workbook = XLSX.read(arrayBuffer, { type: 'array' });
-        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-        const rows = XLSX.utils.sheet_to_json(firstSheet);
+// BUSCA E PROCESSA O ARQUIVO EXCEL DE-PARA DIRETORIA
+async function loadDeParaExcel() {
+  try {
+    const res = await fetch('depara diretoria.xlsx?t=' + Date.now());
+    if (!res.ok) return;
+    const arrayBuffer = await res.arrayBuffer();
+    const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+    const sheetName = workbook.SheetNames[0];
+    const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { defval: '' });
 
-        const deparaMap = {};
-        const dirRegsMap = {};
-        DIR_ORDER.forEach(d => dirRegsMap[d] = new Set());
+    EXCEL_DEPARA_MAP = {};
+    jsonData.forEach(row => {
+      const keys = Object.keys(row);
+      const empKey = keys.find(k => k.trim().toUpperCase().includes('EMPREENDIMENTO') || k.trim().toUpperCase() === 'EMP');
+      const dirKey = keys.find(k => k.trim().toUpperCase().includes('DIRETORIA') || k.trim().toUpperCase() === 'DIR');
+      const regKey = keys.find(k => k.trim().toUpperCase().includes('REGIONAL') || k.trim().toUpperCase() === 'REG');
 
-        rows.forEach(r => {
-          const emp = (r.NomeEmpreendimento || r.nomeEmpreendimento || r.Empreendimento || '').toString().trim().toUpperCase();
-          const dir = (r.DiretoriaComercial || r.diretoriaComercial || r.Diretoria || '').toString().trim();
-          const reg = (r.RegionalComercial || r.regionalComercial || r.Regional || '').toString().trim();
+      if (empKey && row[empKey]) {
+        const empName = String(row[empKey]).trim().toUpperCase();
+        let dirName = dirKey ? String(row[dirKey]).trim() : '';
+        const regName = regKey ? String(row[regKey]).trim() : '';
 
-          if (!emp || !dir) return;
-
-          if (!deparaMap[emp]) deparaMap[emp] = {};
-          if (!deparaMap[emp][dir]) deparaMap[emp][dir] = new Set();
-
-          if (!dirRegsMap[dir]) dirRegsMap[dir] = new Set();
-
-          if (reg) {
-            deparaMap[emp][dir].add(reg);
-            dirRegsMap[dir].add(reg);
+        if (dirName && !dirName.startsWith('DIRETORIA ') && dirName !== '*SEM OPERAÇÃO') {
+          if (DIR_ORDER.includes('DIRETORIA ' + dirName)) {
+            dirName = 'DIRETORIA ' + dirName;
           }
-        });
+        }
 
-        DEPARA = { map: deparaMap };
-        DIR_REGS = dirRegsMap;
-      } catch (err) {
-        console.error("Erro ao carregar 'depara diretoria.xlsx':", err);
+        if (!EXCEL_DEPARA_MAP[empName]) EXCEL_DEPARA_MAP[empName] = [];
+        EXCEL_DEPARA_MAP[empName].push({ dir: dirName, reg: regName });
+        if (DIR_REGS[dirName] && regName) {
+          DIR_REGS[dirName].add(regName);
+        }
       }
-    })();
+    });
+  } catch (e) {
+    console.error('Erro ao carregar o arquivo Excel De-Para:', e);
   }
-  return deparaPromise;
 }
 
 function assign(r){
-  const empKey = (r.empreendimento || '').trim().toUpperCase();
-  const m = DEPARA.map ? DEPARA.map[empKey] : null;
-  if (!m) return { unmapped: true };
+  const empName = (r.empreendimento || '').trim().toUpperCase();
+  const matches = EXCEL_DEPARA_MAP[empName] || [];
+  const candidates = [];
 
-  const dirs = Object.keys(m)
-    .filter(d => DIR_ORDER.includes(d))
-    .sort((x, y) => DIR_ORDER.indexOf(x) - DIR_ORDER.indexOf(y));
+  matches.forEach(m => {
+    if (!DIR_ORDER.includes(m.dir)) return;
+    candidates.push({ dir: m.dir, reg: m.reg || 'Sem regional' });
+  });
 
-  if (!dirs.length) return { unmapped: true };
-
-  const selectedDir = dirs[0];
-  const regs = Array.from(m[selectedDir]).sort();
-  return {
-    dir: selectedDir,
-    reg: regs.length ? regs.join(' + ') : 'Sem regional'
-  };
+  if (!candidates.length) return { unmapped: true };
+  return candidates.find(x => Number(metas[x.reg]) > 0) || candidates[0];
 }
 
 function getMajorityYearMonth(records){
@@ -449,6 +403,7 @@ function getEffectiveGeracaoDate(d, year, month){
   }
   return d;
 }
+
 function parseXML(text){
   const xmlDoc = new DOMParser().parseFromString(text, 'application/xml');
   const nodes = xmlDoc.getElementsByTagName('Detail');
@@ -488,9 +443,7 @@ function parseDateBR(s){
 }
 function daysInMonth(year, month){ return new Date(year, month+1, 0).getDate(); }
 
-function getFirstWeekday(year, month){
-  return new Date(year, month, 1).getDay();
-}
+function getFirstWeekday(year, month){ return new Date(year, month, 1).getDay(); }
 function getNumWeeks(year, month, lastDay){
   const firstWeekday = getFirstWeekday(year, month);
   return Math.floor((firstWeekday + lastDay - 1) / 7) + 1;
@@ -513,6 +466,7 @@ function getQuarter(d){
   if(d<=22) return 3;
   return 4;
 }
+
 function getCalculatedDataForSpi(spiKey, year, month){
   const tDays = daysInMonth(year, month);
   let rawPcts = {};
@@ -531,14 +485,9 @@ function getCalculatedDataForSpi(spiKey, year, month){
   }
 
   let sumPcts = 0;
-  for(let d=1; d<=tDays; d++){
-    sumPcts += rawPcts[d];
-  }
+  for(let d=1; d<=tDays; d++){ sumPcts += rawPcts[d]; }
 
-  let norms = {};
-  let assDays = {};
-  let acums = {};
-  let runAcum = 0;
+  let norms = {}, assDays = {}, acums = {}, runAcum = 0;
   const meta = Number(metas[spiKey]) || 0;
 
   for(let d=1; d<=tDays; d++){
@@ -550,6 +499,7 @@ function getCalculatedDataForSpi(spiKey, year, month){
 
   return { rawPcts, norms, assDays, acums };
 }
+
 function gapColor(pct, lastDay){
   let target = 100;
   if(lastDay <= 15) target = 30;
@@ -563,13 +513,12 @@ function gapColor(pct, lastDay){
 }
 
 function heatColor(v){
-  if(!v || v===0) return '#ffffff';
-  if(v>=5) return 'var(--good-green)';
-  if(v===4) return 'var(--light-green)';
-  if(v===3) return 'var(--yellow)';
-  if(v===2) return 'var(--amber)';
-  if(v===1) return 'var(--red)';
-  return '#ffffff';
+  if(!v) return '#ffffff';
+  if(v>30) return 'var(--good-green)';
+  if(v>=25) return 'var(--light-green)';
+  if(v>=19) return 'var(--yellow)';
+  if(v>=13) return 'var(--amber)';
+  return 'var(--red)';
 }
 
 function drawChart(labels, plano, gerados){
@@ -611,23 +560,17 @@ function drawChart(labels, plano, gerados){
   };
 
   const planoPath = buildPath(plano);
-  if(planoPath){
-    svg += `<path d="${planoPath}" fill="none" stroke="#7c8c82" stroke-width="2"/>`;
-  }
+  if(planoPath) svg += `<path d="${planoPath}" fill="none" stroke="#7c8c82" stroke-width="2"/>`;
 
   const geradosPath = buildPath(gerados);
-  if(geradosPath){
-    svg += `<path d="${geradosPath}" fill="none" stroke="#FF8B22" stroke-width="2.5"/>`;
-  }
+  if(geradosPath) svg += `<path d="${geradosPath}" fill="none" stroke="#FF8B22" stroke-width="2.5"/>`;
 
   plano.forEach((val, i) => {
     if(val === null || val === undefined) return;
     const x = getX(i), y = getY(val);
     const label = String(val);
-    const bw = label.length * 4.5 + 4;
-    const bh = 11;
-    const bx = x - bw / 2;
-    const by = y - 5 - bh;
+    const bw = label.length * 4.5 + 4, bh = 11;
+    const bx = x - bw / 2, by = y - 5 - bh;
     svg += `<rect x="${bx.toFixed(1)}" y="${by.toFixed(1)}" width="${bw.toFixed(1)}" height="${bh}" rx="2" ry="2" fill="#5a6e63" opacity="0.88"/>`;
     svg += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="2" fill="#7c8c82"/>`;
     svg += `<text x="${x.toFixed(1)}" y="${(by + bh - 2).toFixed(1)}" fill="#ffffff" font-size="7.5" font-weight="700" font-family="Verdana,Arial,sans-serif" text-anchor="middle">${label}</text>`;
@@ -637,10 +580,8 @@ function drawChart(labels, plano, gerados){
     if(val === null || val === undefined) return;
     const x = getX(i), y = getY(val);
     const label = String(val);
-    const bw = label.length * 4.5 + 4;
-    const bh = 11;
-    const bx = x - bw / 2;
-    const by = y + 4;
+    const bw = label.length * 4.5 + 4, bh = 11;
+    const bx = x - bw / 2, by = y + 4;
     svg += `<rect x="${bx.toFixed(1)}" y="${by.toFixed(1)}" width="${bw.toFixed(1)}" height="${bh}" rx="2" ry="2" fill="#FF8B22" opacity="0.92"/>`;
     svg += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="2.5" fill="#FF8B22"/>`;
     svg += `<text x="${x.toFixed(1)}" y="${(by + bh - 2).toFixed(1)}" fill="#ffffff" font-size="7.5" font-weight="700" font-family="Verdana,Arial,sans-serif" text-anchor="middle">${label}</text>`;
@@ -660,31 +601,22 @@ window.addEventListener('resize', () => {
     requestAnimationFrame(() => render());
   }
 });
-function exportXml() {
-  if (!currentXmlText) {
-    alert("Nenhum dado carregado para exportar.");
-    return;
-  }
-  const blob = new Blob([currentXmlText], {type: 'application/xml;charset=utf-8'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = XML_NAME;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-document.getElementById('exportXmlBtn').addEventListener('click', exportXml);
 
 const dirLabel=k=>k.replace('DIRETORIA ','Dir. ');
-let metas={},pdvPcts={},PLAN={},openDirs=new Set(),selectedDirFilter=null;
-let selectedStatusFilter=null,selectedChannelFilter=null,currentRecords=[],currentXmlText='';
 
 function mKey(){const {year,month}=getMajorityYearMonth(currentRecords);return year+'_'+month;}
+
 function applyPlan(){
   const k=mKey(),pm=(PLAN.metas||{})[k]||{}; pdvPcts=(PLAN.pcts||{})[k]||{}; metas={...pm};
-  DIR_ORDER.forEach(d=>{ if(!Number(pm[d])){let s=0;(DIR_REGS[d]||new Set()).forEach(g=>s+=Number(pm[g])||0);metas[d]=s;} });
+  DIR_ORDER.forEach(d=>{ 
+    if(!Number(pm[d])){
+      let s=0;
+      if(DIR_REGS[d]) DIR_REGS[d].forEach(g=>s+=Number(pm[g])||0);
+      metas[d]=s;
+    } 
+  });
 }
+
 async function loadPlan(){try{const r=await fetch('planejamento.json?t='+Date.now());if(r.ok)PLAN=await r.json();}catch(e){}}
 function toggleDir(i){const k=DIR_ORDER[i];openDirs.has(k)?openDirs.delete(k):openDirs.add(k);render();}
 function filterDir(i){const k=DIR_ORDER[i];selectedDirFilter=selectedDirFilter===k?null:k;render();}
@@ -712,6 +644,7 @@ function render(){
     if(!d||d.getFullYear()!==year||d.getMonth()!==month) return false;
     return !selectedDirFilter||r._a.dir===selectedDirFilter;
   });
+
   const statusCount = {Ativo:0,'Pré-Ativo':0,Rascunho:0};
   const channelCount = {HOUSE:0, IMOB:0, AGS:0};
   monthRecords.forEach(r=>{
@@ -724,26 +657,36 @@ function render(){
     if(selectedChannelFilter && r.canal !== selectedChannelFilter) return false;
     return true;
   });
+
   const z=()=>new Array(totalDays+1).fill(0);
   const D={}; DIR_ORDER.forEach(k=>D[k]={per:z(),total:0,regs:{}});
   const totPer=z(); const unm=new Set(); let unmCount=0;
+
   inMonth.forEach(r=>{
     const day=getEffectiveGeracaoDate(parseDateBR(r.geracao),year,month).getDate(),a=r._a;
     if(a.unmapped){unmCount++;unm.add(r.empreendimento);return;}
-    const o=D[a.dir]; o.per[day]++; o.total++; totPer[day]++;
-    const x=o.regs[a.reg]||(o.regs[a.reg]={per:z(),total:0}); x.per[day]++; x.total++;
+    const o=D[a.dir]; 
+    if(o){
+      o.per[day]++; o.total++; totPer[day]++;
+      const x=o.regs[a.reg]||(o.regs[a.reg]={per:z(),total:0}); x.per[day]++; x.total++;
+    }
   });
+
   const E={per:z(),total:0};
-  const regList=(k,o)=>[...new Set([...(DIR_REGS[k]||[]),...Object.keys(o.regs)])].filter(g=>(o.regs[g]&&o.regs[g].total)||Number(metas[g])>0).sort();
+  const regList=(k,o)=>[...(PRES[k]||[])].sort();
   const warn=document.getElementById('unmappedWarning');
-  if(unm.size>0){warn.style.display='flex';warn.innerHTML='⚠ '+unmCount+' contrato(s) de '+unm.size+' empreendimento(s) sem diretoria no De-Para (ou sem operação): '+[...unm].slice(0,4).join(', ')+(unm.size>4?'…':'');}
-  else warn.style.display='none';
+  if(unm.size>0){
+    warn.style.display='flex';
+    warn.innerHTML='⚠ '+unmCount+' contrato(s) de '+unm.size+' empreendimento(s) sem diretoria no De-Para: '+[...unm].slice(0,4).join(', ')+(unm.size>4?'…':'');
+  } else warn.style.display='none';
+
   const fb=document.getElementById('filterBanner'),ft=[];
   if(selectedDirFilter) ft.push('Diretoria: '+dirLabel(selectedDirFilter));
   if(selectedStatusFilter) ft.push('Status: '+selectedStatusFilter);
   if(selectedChannelFilter) ft.push('Canal: '+({HOUSE:'House',IMOB:'Imob',AGS:'AGS'}[selectedChannelFilter]));
   fb.style.display=ft.length?'flex':'none';
   document.getElementById('filterBannerText').textContent='🔎 Filtrando por '+ft.join(' | ');
+
   document.getElementById('statBoxAtivo').style.background = (selectedStatusFilter === 'Ativo') ? '#d1e7dd' : 'transparent';
   document.getElementById('statBoxPreAtivo').style.background = (selectedStatusFilter === 'Pré-Ativo') ? '#d1e7dd' : 'transparent';
   document.getElementById('statBoxRascunho').style.background = (selectedStatusFilter === 'Rascunho') ? '#d1e7dd' : 'transparent';
@@ -766,12 +709,14 @@ function render(){
   document.getElementById('statShareHouse').textContent = '(' + shareHouse.toFixed(1).replace('.', ',') + '%)';
   document.getElementById('statShareImob').textContent = '(' + shareImob.toFixed(1).replace('.', ',') + '%)';
   document.getElementById('statShareAGS').textContent = '(' + shareAGS.toFixed(1).replace('.', ',') + '%)';
+
   const keys=selectedDirFilter?[selectedDirFilter]:DIR_ORDER;
   const metaTotal=keys.reduce((s,k)=>s+(Number(metas[k])||0),0);
   const realizadoMappedTotal=totPer.reduce((a,b)=>a+b,0);
   const gapPct=metaTotal>0?realizadoMappedTotal/metaTotal*100:0;
   const gapQtd=realizadoMappedTotal-metaTotal;
   const vendasDiaRestanteTotal=Math.max(0,metaTotal-realizadoMappedTotal)/diasRestantes;
+
   document.getElementById('kpiMeta').textContent = metaTotal.toLocaleString('pt-BR');
   document.getElementById('kpiRealizado').textContent = realizadoMappedTotal.toLocaleString('pt-BR');
   document.getElementById('kpiGapPct').textContent = gapPct.toFixed(1).replace('.',',')+'%';
@@ -781,6 +726,7 @@ function render(){
   document.getElementById('statPreAtivo').textContent = statusCount['Pré-Ativo'];
   document.getElementById('statRascunho').textContent = statusCount.Rascunho;
   document.getElementById('statTotal').textContent = monthRecords.length;
+
   const caret=(i,o)=>`<span class="caret" onclick="event.stopPropagation();toggleDir(${i})">${o?'▾':'▸'}</span>`;
   let tb='';
   DIR_ORDER.forEach((k,i)=>{
@@ -793,52 +739,85 @@ function render(){
 
   const numWeeks=getNumWeeks(year,month,lastDay);
   const wk=per=>{const a=new Array(numWeeks).fill(0);for(let d=1;d<=lastDay;d++)a[getWeekIndexForDay(year,month,d)]+=per[d];return a;};
+  
   let h1='<tr><th rowspan="2">Diretoria</th>',h2='<tr>';
-  for(let d=1;d<=lastDay;d++){h1+=`<th>${getDayName(new Date(year,month,d))}</th>`;h2+=`<th>${String(d).padStart(2,'0')}</th>`;}
-  h1+='<th rowspan="2">Total</th></tr>'; h2+='</tr>';
+  for(let d=1;d<=lastDay;d++){
+    h1+=`<th>${getDayName(new Date(year,month,d))}</th>`;
+    h2+=`<th>${String(d).padStart(2,'0')}</th>`;
+  }
+  h1+='<th rowspan="2">Total</th></tr>'; 
+  h2+='</tr>';
+
   let mr='',wr='';
   
-  const cellHeat=(per)=>{let s='';for(let d=1;d<=lastDay;d++)s+=`<td style="background:${heatColor(per[d])}">${per[d]||''}</td>`;return s;};
-  const cellPlain=(per)=>{let s='';for(let d=1;d<=lastDay;d++)s+=`<td>${per[d]||''}</td>`;return s;};
+  // Função geradora de células com condicional ajustada (h=true apenas para a linha principal)
+  const cell = (per, h) => {
+    let s = '';
+    for(let d=1; d<=lastDay; d++) {
+      s += `<td${h ? ` style="background:${heatColor(per[d])}"` : ''}>${per[d]||''}</td>`;
+    }
+    return s;
+  };
 
   DIR_ORDER.forEach((k,i)=>{
     if(selectedDirFilter&&k!==selectedDirFilter) return;
-    const o=D[k],open=openDirs.has(k),ws=wk(o.per);
-    
-    mr+=`<tr class="dir-row"><td>${caret(i,open)}${dirLabel(k)}</td>${cellHeat(o.per)}<td class="total-col">${o.total}</td></tr>`;
-    wr+=`<tr class="dir-row"><td>${caret(i,open)}${dirLabel(k)}</td>${ws.map(v=>`<td>${v||''}</td>`).join('')}<td>${o.total}</td></tr>`;
-    if(open) regList(k,o).forEach(g=>{const x=o.regs[g]||E;
-      mr+=`<tr class="reg-row"><td>${g}</td>${cellPlain(x.per)}<td class="total-col">${x.total}</td></tr>`;
-      wr+=`<tr class="reg-row"><td>${g}</td>${wk(x.per).map(v=>`<td>${v||''}</td>`).join('')}<td>${x.total}</td></tr>`;});
-  });
-  mr+='<tr class="total-row"><td>Total</td>'+Array.from({length:lastDay},(_,i)=>`<td>${totPer[i+1]||''}</td>`).join('')+`<td class="total-col">${realizadoMappedTotal}</td></tr>`;
-  wr+='<tr class="total-row"><td>Total</td>'+wk(totPer).map(v=>`<td>${v||''}</td>`).join('')+`<td>${realizadoMappedTotal}</td></tr>`;
-  document.getElementById('matrixTable').innerHTML=h1+h2+mr;
-  document.getElementById('weekTable').innerHTML='<tr><th>Diretoria</th>'+Array.from({length:numWeeks},(_,w)=>`<th>Sem. ${w+1}</th>`).join('')+'<th>Total</th></tr>'+wr;
+    const o=D[k], open=openDirs.has(k), ws=wk(o.per);
 
-  const cumG=[],cumP=[];let rg=0,rp=0;
-  for(let d=1;d<=totalDays;d++){ if(d<=lastDay){rg+=totPer[d];cumG.push(rg);}else cumG.push(null);
-    keys.forEach(k=>{rp+=getCalculatedDataForSpi(k,year,month).assDays[d];}); cumP.push(Math.round(rp)); }
-  drawChart(Array.from({length:totalDays},(_,i)=>i+1),cumP,cumG);
+    // Linha Principal da Diretoria (Com Condicional)
+    mr += `<tr class="dir-row"><td>${caret(i,open)}${dirLabel(k)}</td>${cell(o.per, true)}<td class="total-col">${o.total}</td></tr>`;
+    wr += `<tr class="dir-row"><td>${caret(i,open)}${dirLabel(k)}</td>${ws.map(v=>`<td>${v||''}</td>`).join('')}<td>${o.total}</td></tr>`;
+
+    // Linhas Expandidas das Regionais (Sem Condicional)
+    if(open) {
+      regList(k,o).forEach(g=>{
+        const x=o.regs[g]||E;
+        mr += `<tr class="reg-row"><td>${g}</td>${cell(x.per, false)}<td class="total-col">${x.total}</td></tr>`;
+        wr += `<tr class="reg-row"><td>${g}</td>${wk(x.per).map(v=>`<td>${v||''}</td>`).join('')}<td>${x.total}</td></tr>`;
+      });
+    }
+  });
+
+  mr += '<tr class="total-row"><td>Total</td>'+Array.from({length:lastDay},(_,i)=>`<td>${totPer[i+1]||''}</td>`).join('')+`<td class="total-col">${realizadoMappedTotal}</td></tr>`;
+  wr += '<tr class="total-row"><td>Total</td>'+wk(totPer).map(v=>`<td>${v||''}</td>`).join('')+`<td>${realizadoMappedTotal}</td></tr>`;
+  
+  document.getElementById('matrixTable').innerHTML = h1 + h2 + mr;
+  document.getElementById('weekTable').innerHTML = '<tr><th>Diretoria</th>'+Array.from({length:numWeeks},(_,w)=>`<th>Sem. ${w+1}</th>`).join('')+'<th>Total</th></tr>'+wr;
+
+  const cumG=[], cumP=[]; let rg=0, rp=0;
+  for(let d=1; d<=totalDays; d++){ 
+    if(d<=lastDay){ rg+=totPer[d]; cumG.push(rg); } else cumG.push(null);
+    keys.forEach(k=>{ rp+=getCalculatedDataForSpi(k,year,month).assDays[d]; }); 
+    cumP.push(Math.round(rp)); 
+  }
+  drawChart(Array.from({length:totalDays},(_,i)=>i+1), cumP, cumG);
 }
+
 async function loadFromText(t){
-  await loadDeparaFromExcel();
-  currentXmlText=t; currentRecords=parseXML(t); currentRecords.forEach(r=>r._a=assign(r));
-  applyPlan();
+  currentXmlText=t; 
+  currentRecords=parseXML(t); 
+  applyPlan(); 
+  currentRecords.forEach(r=>r._a=assign(r));
+  PRES={}; DIR_ORDER.forEach(k=>PRES[k]=new Set());
+  currentRecords.forEach(r=>{ if(!r._a.unmapped) PRES[r._a.dir].add(r._a.reg); });
+  
   document.getElementById('emptyState').style.display='none';
   document.getElementById('dashboard').style.display='block';
   requestAnimationFrame(()=>requestAnimationFrame(render));
 }
-function stamp(d){document.getElementById('fileStatus').textContent='Atualizado em: '+d.toLocaleDateString('pt-BR')+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});}
+
+function stamp(d){
+  document.getElementById('fileStatus').textContent='Atualizado em: '+d.toLocaleDateString('pt-BR')+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+}
+
 document.getElementById('uploadBtn').onclick=()=>document.getElementById('fileInput').click();
-document.getElementById('fileInput').onchange=async e=>{const f=e.target.files[0];if(f){await loadFromText(await f.text());stamp(new Date());}};
-document.getElementById('exportXmlBtn').onclick=exportXml;
-document.getElementById('planBtn').onclick=()=>document.getElementById('planInput').click();
-document.getElementById('planInput').onchange=async e=>{const f=e.target.files[0];if(f){PLAN=JSON.parse(await f.text());applyPlan();render();}};
+document.getElementById('fileInput').onchange=async e=>{
+  const f=e.target.files[0];
+  if(f){ await loadFromText(await f.text()); stamp(new Date()); }
+};
 
 (async function init(){
-  await loadDeparaFromExcel();
-  await loadPlan();
+  await loadDeParaExcel(); // Carrega primeiro o Excel de De-Para
+  await loadPlan();        // Carrega o planejamento JSON
   try{
     const res=await fetch(XML_NAME+'?t='+Date.now());
     if(res.ok){
@@ -849,6 +828,6 @@ document.getElementById('planInput').onchange=async e=>{const f=e.target.files[0
     }
   }catch(e){}
 })();
-
 </script>
-</body></html>
+</body>
+</html>
