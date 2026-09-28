@@ -337,7 +337,20 @@ const DIR_REGS={}; DIR_ORDER.forEach(d => DIR_REGS[d] = new Set());
 
 function processDeParaWorkbook(workbook) {
   const sheetName = workbook.SheetNames[0];
-  const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { defval: '' });
+  const worksheet = workbook.Sheets[sheetName];
+  
+  // Localiza dinamicamente a linha de cabeçalho correta na planilha
+  const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
+  let headerRowIndex = 0;
+  for (let i = 0; i < rows.length; i++) {
+    const rowStr = rows[i].map(c => String(c).trim().toUpperCase()).join(' ');
+    if (rowStr.includes('EMPREENDIMENTO') || rowStr.includes('NOMEEMPREENDIMENTO') || rowStr.includes('DIRETORIACOMERCIAL')) {
+      headerRowIndex = i;
+      break;
+    }
+  }
+
+  const jsonData = XLSX.utils.sheet_to_json(worksheet, { range: headerRowIndex, defval: '' });
 
   EXCEL_DEPARA_MAP = {};
   DIR_ORDER.forEach(d => DIR_REGS[d] = new Set());
@@ -359,16 +372,8 @@ function processDeParaWorkbook(workbook) {
 
     if (empKey && row[empKey]) {
       const empName = String(row[empKey]).trim().toUpperCase();
-      let dirName = dirKey ? String(dirKey).trim() : '';
-      
-      if (dirKey && row[dirKey] !== undefined) {
-        dirName = String(row[dirKey]).trim().toUpperCase();
-      }
-      
-      let regName = '';
-      if (regKey && row[regKey] !== undefined) {
-        regName = String(row[regKey]).trim();
-      }
+      let dirName = dirKey ? String(row[dirKey]).trim().toUpperCase() : '';
+      let regName = regKey ? String(row[regKey]).trim() : '';
 
       if (dirName && !dirName.startsWith('DIRETORIA ') && dirName !== '*SEM OPERAÇÃO') {
         if (DIR_ORDER.includes('DIRETORIA ' + dirName)) {
@@ -383,6 +388,8 @@ function processDeParaWorkbook(workbook) {
       }
     }
   });
+
+  console.log('De-Para carregado. Empreendimentos:', Object.keys(EXCEL_DEPARA_MAP).length);
 }
 
 async function loadDeParaExcel() {
@@ -874,7 +881,6 @@ function stamp(d){
   document.getElementById('fileStatus').textContent='Atualizado em: '+d.toLocaleDateString('pt-BR')+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
 }
 
-// Eventos de Upload
 document.getElementById('uploadBtn').onclick=()=>document.getElementById('fileInput').click();
 document.getElementById('fileInput').onchange=async e=>{
   const f=e.target.files[0];
@@ -908,9 +914,7 @@ document.getElementById('deparaInput').onchange=async e=>{
       await loadFromText(t);
       stamp(lm?new Date(lm):new Date());
     }
-  }catch(e){
-    // Se a busca automática falhar, o estado vazio continua clicável para o usuário selecionar o XML manualmente
-  }
+  }catch(e){}
 })();
 </script>
 </body>
