@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Diretoria Comercial — Gerados diário</title>
-<!-- Bibliotecas para leitura de arquivos Excel (.xlsx) e XML -->
+<!-- Biblioteca para leitura de arquivos Excel (.xlsx) -->
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
   :root{
@@ -182,7 +182,7 @@
   .status-mini .l{font-size:9px;color:var(--muted);font-weight:600;}
   .status-mini .n.share-val { font-size: 10px; font-weight: 700; color: var(--muted); }
 
-  .empty-state{text-align:center;padding:40px 20px;color:var(--muted);}
+  .empty-state{text-align:center;padding:40px 20px;color:var(--muted);cursor:pointer;}
   .empty-state h2{color:var(--green-dark);font-size:15px;margin:0 0 4px;}
   .empty-state p{font-size:11.5px;max-width:360px;margin:0 auto;}
 
@@ -226,9 +226,9 @@
 
   <div class="warn-banner" id="unmappedWarning" style="display:none;"></div>
   
-  <div id="emptyState" class="card empty-state" style="display:block;">
+  <div id="emptyState" class="card empty-state" onclick="document.getElementById('fileInput').click();">
     <h2>Nenhum dado carregado ainda</h2>
-    <p>Buscando o XML na mesma pasta ou selecione um arquivo XML...</p>
+    <p>Clique aqui ou no botão acima para selecionar o arquivo XML ({DEDBD38E-D54E-DF11-AD89-001B78B9D994})...</p>
   </div>
 
   <div id="tabDashContent">
@@ -361,7 +361,6 @@ function processDeParaWorkbook(workbook) {
       const empName = String(row[empKey]).trim().toUpperCase();
       let dirName = dirKey ? String(dirKey).trim() : '';
       
-      // Tentar pegar o valor da diretoria caso dirKey seja o nome da coluna
       if (dirKey && row[dirKey] !== undefined) {
         dirName = String(row[dirKey]).trim().toUpperCase();
       }
@@ -384,8 +383,6 @@ function processDeParaWorkbook(workbook) {
       }
     }
   });
-
-  console.log('De-Para carregado com sucesso:', Object.keys(EXCEL_DEPARA_MAP).length, 'empreendimentos mapeados.');
 }
 
 async function loadDeParaExcel() {
@@ -401,7 +398,7 @@ async function loadDeParaExcel() {
       render();
     }
   } catch (e) {
-    console.warn('Não foi possível carregar "depara diretoria.xlsx" automaticamente. Utilize o botão "Carregar De-Para".', e);
+    console.warn('Carregamento automático do Excel De-Para indisponível. Utilize o botão "Carregar De-Para".');
   }
 }
 
@@ -851,7 +848,7 @@ function render(){
   document.getElementById('matrixTable').innerHTML = h1 + h2 + mr;
   document.getElementById('weekTable').innerHTML = '<tr><th>Diretoria</th>'+Array.from({length:numWeeks},(_,w)=>`<th>Sem. ${w+1}</th>`).join('')+'<th>Total</th></tr>'+wr;
 
-  const cumG=[], cumP []; let rg=0, rp=0;
+  const cumG=[], cumP=[]; let rg=0, rp=0;
   for(let d=1; d<=totalDays; d++){ 
     if(d<=lastDay){ rg+=totPer[d]; cumG.push(rg); } else cumG.push(null);
     keys.forEach(k=>{ rp+=getCalculatedDataForSpi(k,year,month).assDays[d]; }); 
@@ -911,7 +908,9 @@ document.getElementById('deparaInput').onchange=async e=>{
       await loadFromText(t);
       stamp(lm?new Date(lm):new Date());
     }
-  }catch(e){}
+  }catch(e){
+    // Se a busca automática falhar, o estado vazio continua clicável para o usuário selecionar o XML manualmente
+  }
 })();
 </script>
 </body>
