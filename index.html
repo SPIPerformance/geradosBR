@@ -442,7 +442,7 @@
   <div class="topbar">
     <div class="brand"><div class="brand-badge">DIR</div><div><h1>Diretoria Comercial</h1><p>Gerados diário</p></div></div>
     <div class="actions">
-      <button class="btn secondary" id="planBtn" type="button">⭱ Planejamento</button><input type="file" id="planInput" accept=".json" style="display:none"><button class="btn secondary" id="exportXmlBtn" type="button">⬇ Baixar XML</button>
+      
       <div class="upload-group"><button class="btn" id="uploadBtn" type="button">⭱ Carregar XML</button>
       <input type="file" id="fileInput" accept=".xml"><div class="file-status" id="fileStatus">Atualizado em: —</div></div>
     </div>
@@ -531,7 +531,7 @@
           <table class="week" id="weekTable"></table>
         </div>
       </div>
-    <div class="note" id="deptNote">▸ Clique na seta para abrir as regionais (a diretoria é a soma das regionais). Cada empreendimento vai para uma única regional, a primeira que aparece no De-Para, e só aparecem regionais com empreendimentos no XML. Metas e % diários vêm do planejamento.json.</div>
+    <div class="note" id="deptNote">▸ Clique na seta para abrir as regionais (a diretoria é a soma das regionais). Cada empreendimento vai para uma única regional, a regional que tem meta no planejamento.json (se houver mais de uma, a primeira do De-Para), e só aparecem regionais com empreendimentos no XML. Metas e % diários vêm do planejamento.json.</div>
     </div>
   </div>
 </div>
@@ -686,7 +686,7 @@ function gapColor(pct, lastDay){
   return 'var(--red)';
 }
 
-function heatColor(v){ return v>30 ? 'var(--good-green)' : '#ffffff'; }
+function heatColor(v){ if(!v) return '#ffffff'; if(v>30) return 'var(--good-green)'; if(v>=25) return 'var(--light-green)'; if(v>=19) return 'var(--yellow)'; if(v>=13) return 'var(--amber)'; return 'var(--red)'; }
 
 function drawChart(labels, plano, gerados){
   const wrap = document.getElementById('mainChartWrap');
@@ -776,21 +776,7 @@ window.addEventListener('resize', () => {
     requestAnimationFrame(() => render());
   }
 });
-function exportXml() {
-  if (!currentXmlText) {
-    alert("Nenhum dado carregado para exportar.");
-    return;
-  }
-  const blob = new Blob([currentXmlText], {type: 'application/xml;charset=utf-8'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = XML_NAME;
-  a.click();
-  URL.revokeObjectURL(url);
-}
 
-document.getElementById('exportXmlBtn').addEventListener('click', exportXml);
 
 const DIR_ORDER=['DIRETORIA SPI','DIRETORIA SUDESTE','DIRETORIA NE','DIRETORIA SP','DIRETORIA SUL','DIRETORIA CO E AM'];
 const DEPARA=JSON.parse(document.getElementById('deparaData').textContent);
@@ -800,10 +786,10 @@ let selectedStatusFilter=null,selectedChannelFilter=null,currentRecords=[],curre
 const DIR_REGS={};DEPARA.dirs.forEach(d=>DIR_REGS[d]=new Set());
 Object.values(DEPARA.map).forEach(v=>v.forEach(([d,rs])=>rs.forEach(i=>DIR_REGS[DEPARA.dirs[d]].add(DEPARA.regs[i]))));
 function assign(r){
-  const m=DEPARA.map[(r.empreendimento||'').trim().toUpperCase()]||[];
-  const c=m.find(([d])=>DIR_ORDER.includes(DEPARA.dirs[d]));
-  if(!c) return {unmapped:true};
-  return {dir:DEPARA.dirs[c[0]],reg:c[1].length?DEPARA.regs[c[1][0]]:'Sem regional'};
+  const m=DEPARA.map[(r.empreendimento||'').trim().toUpperCase()]||[],c=[];
+  m.forEach(([d,rs])=>{const dir=DEPARA.dirs[d];if(!DIR_ORDER.includes(dir))return;(rs.length?rs:[-1]).forEach(i=>c.push({dir,reg:i<0?'Sem regional':DEPARA.regs[i]}));});
+  if(!c.length) return {unmapped:true};
+  return c.find(x=>Number(metas[x.reg])>0)||c[0];
 }
 function mKey(){const {year,month}=getMajorityYearMonth(currentRecords);return year+'_'+month;}
 function applyPlan(){
@@ -943,9 +929,8 @@ function render(){
   drawChart(Array.from({length:totalDays},(_,i)=>i+1),cumP,cumG);
 }
 async function loadFromText(t){
-  currentXmlText=t; currentRecords=parseXML(t); currentRecords.forEach(r=>r._a=assign(r));
+  currentXmlText=t; currentRecords=parseXML(t); applyPlan(); currentRecords.forEach(r=>r._a=assign(r));
   PRES={};DIR_ORDER.forEach(k=>PRES[k]=new Set());currentRecords.forEach(r=>{if(!r._a.unmapped)PRES[r._a.dir].add(r._a.reg);});
-  applyPlan();
   document.getElementById('emptyState').style.display='none';
   document.getElementById('dashboard').style.display='block';
   requestAnimationFrame(()=>requestAnimationFrame(render));
@@ -953,9 +938,6 @@ async function loadFromText(t){
 function stamp(d){document.getElementById('fileStatus').textContent='Atualizado em: '+d.toLocaleDateString('pt-BR')+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});}
 document.getElementById('uploadBtn').onclick=()=>document.getElementById('fileInput').click();
 document.getElementById('fileInput').onchange=async e=>{const f=e.target.files[0];if(f){await loadFromText(await f.text());stamp(new Date());}};
-document.getElementById('exportXmlBtn').onclick=exportXml;
-document.getElementById('planBtn').onclick=()=>document.getElementById('planInput').click();
-document.getElementById('planInput').onchange=async e=>{const f=e.target.files[0];if(f){PLAN=JSON.parse(await f.text());applyPlan();render();}};
 (async function init(){
   await loadPlan();
   try{const res=await fetch(XML_NAME+'?t='+Date.now());
