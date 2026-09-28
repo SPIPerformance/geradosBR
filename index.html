@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Diretoria Comercial — Gerados diário</title>
-<!-- Biblioteca para leitura de arquivos Excel (.xlsx) -->
+<!-- Bibliotecas para leitura de arquivos Excel (.xlsx) e XML -->
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
   :root{
@@ -64,7 +64,7 @@
   .btn.secondary{background:#fff;color:var(--green-dark);border:1.5px solid var(--line);}
   .btn.secondary:hover{background:var(--green-light);border-color:var(--green);}
 
-  #fileInput{display:none;}
+  #fileInput, #deparaInput{display:none;}
   .file-status{
     position:absolute;top:100%;right:0;margin-top:2px;
     font-size:10px;color:var(--muted);white-space:nowrap;
@@ -213,6 +213,10 @@
     <div class="brand"><div class="brand-badge">DIR</div><div><h1>Diretoria Comercial</h1><p>Gerados diário</p></div></div>
     <div class="actions">
       <div class="upload-group">
+        <button class="btn secondary" id="uploadDeparaBtn" type="button">📊 Carregar De-Para</button>
+        <input type="file" id="deparaInput" accept=".xlsx, .xls">
+      </div>
+      <div class="upload-group">
         <button class="btn" id="uploadBtn" type="button">⭱ Carregar XML</button>
         <input type="file" id="fileInput" accept=".xml">
         <div class="file-status" id="fileStatus">Atualizado em: —</div>
@@ -323,7 +327,6 @@ const DIR_ORDER=['DIRETORIA SPI','DIRETORIA SUDESTE','DIRETORIA NE','DIRETORIA S
 let EXCEL_DEPARA_MAP = {};
 let PRES={}, metas={}, pdvPcts={}, PLAN={};
 
-// ITEM 1: ESTADOS DE EXPANSÃO INDEPENDENTES PARA CADA QUADRO/TABELA
 let openDirsSpi = new Set();
 let openDirsMatrix = new Set();
 let openDirsWeek = new Set();
@@ -332,42 +335,73 @@ let selectedDirFilter=null, selectedStatusFilter=null, selectedChannelFilter=nul
 let currentRecords=[], currentXmlText='';
 const DIR_REGS={}; DIR_ORDER.forEach(d => DIR_REGS[d] = new Set());
 
+function processDeParaWorkbook(workbook) {
+  const sheetName = workbook.SheetNames[0];
+  const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { defval: '' });
+
+  EXCEL_DEPARA_MAP = {};
+  DIR_ORDER.forEach(d => DIR_REGS[d] = new Set());
+
+  jsonData.forEach(row => {
+    const keys = Object.keys(row);
+    const empKey = keys.find(k => {
+      const u = k.trim().toUpperCase();
+      return u.includes('EMPREENDIMENTO') || u === 'EMP' || u === 'PRODUTO' || u === 'NOME';
+    });
+    const dirKey = keys.find(k => {
+      const u = k.trim().toUpperCase();
+      return u.includes('DIRETORIA') || u === 'DIR';
+    });
+    const regKey = keys.find(k => {
+      const u = k.trim().toUpperCase();
+      return u.includes('REGIONAL') || u === 'REG';
+    });
+
+    if (empKey && row[empKey]) {
+      const empName = String(row[empKey]).trim().toUpperCase();
+      let dirName = dirKey ? String(dirKey).trim() : '';
+      
+      // Tentar pegar o valor da diretoria caso dirKey seja o nome da coluna
+      if (dirKey && row[dirKey] !== undefined) {
+        dirName = String(row[dirKey]).trim().toUpperCase();
+      }
+      
+      let regName = '';
+      if (regKey && row[regKey] !== undefined) {
+        regName = String(row[regKey]).trim();
+      }
+
+      if (dirName && !dirName.startsWith('DIRETORIA ') && dirName !== '*SEM OPERAÇÃO') {
+        if (DIR_ORDER.includes('DIRETORIA ' + dirName)) {
+          dirName = 'DIRETORIA ' + dirName;
+        }
+      }
+
+      if (!EXCEL_DEPARA_MAP[empName]) EXCEL_DEPARA_MAP[empName] = [];
+      EXCEL_DEPARA_MAP[empName].push({ dir: dirName, reg: regName });
+      if (DIR_REGS[dirName] && regName) {
+        DIR_REGS[dirName].add(regName);
+      }
+    }
+  });
+
+  console.log('De-Para carregado com sucesso:', Object.keys(EXCEL_DEPARA_MAP).length, 'empreendimentos mapeados.');
+}
+
 async function loadDeParaExcel() {
   try {
     const res = await fetch('depara diretoria.xlsx?t=' + Date.now());
-    if (!res.ok) return;
+    if (!res.ok) throw new Error('Arquivo não encontrado via fetch');
     const arrayBuffer = await res.arrayBuffer();
     const workbook = XLSX.read(arrayBuffer, { type: 'array' });
-    const sheetName = workbook.SheetNames[0];
-    const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { defval: '' });
-
-    EXCEL_DEPARA_MAP = {};
-    jsonData.forEach(row => {
-      const keys = Object.keys(row);
-      const empKey = keys.find(k => k.trim().toUpperCase().includes('EMPREENDIMENTO') || k.trim().toUpperCase() === 'EMP');
-      const dirKey = keys.find(k => k.trim().toUpperCase().includes('DIRETORIA') || k.trim().toUpperCase() === 'DIR');
-      const regKey = keys.find(k => k.trim().toUpperCase().includes('REGIONAL') || k.trim().toUpperCase() === 'REG');
-
-      if (empKey && row[empKey]) {
-        const empName = String(row[empKey]).trim().toUpperCase();
-        let dirName = dirKey ? String(row[dirKey]).trim() : '';
-        const regName = regKey ? String(row[regKey]).trim() : '';
-
-        if (dirName && !dirName.startsWith('DIRETORIA ') && dirName !== '*SEM OPERAÇÃO') {
-          if (DIR_ORDER.includes('DIRETORIA ' + dirName)) {
-            dirName = 'DIRETORIA ' + dirName;
-          }
-        }
-
-        if (!EXCEL_DEPARA_MAP[empName]) EXCEL_DEPARA_MAP[empName] = [];
-        EXCEL_DEPARA_MAP[empName].push({ dir: dirName, reg: regName });
-        if (DIR_REGS[dirName] && regName) {
-          DIR_REGS[dirName].add(regName);
-        }
-      }
-    });
+    processDeParaWorkbook(workbook);
+    if (currentRecords.length > 0) {
+      applyPlan();
+      currentRecords.forEach(r => r._a = assign(r));
+      render();
+    }
   } catch (e) {
-    console.error('Erro ao carregar o arquivo Excel De-Para:', e);
+    console.warn('Não foi possível carregar "depara diretoria.xlsx" automaticamente. Utilize o botão "Carregar De-Para".', e);
   }
 }
 
@@ -627,7 +661,6 @@ function applyPlan(){
 
 async function loadPlan(){try{const r=await fetch('planejamento.json?t='+Date.now());if(r.ok)PLAN=await r.json();}catch(e){}}
 
-// ITEM 1: FUNÇÕES DE EXPANSÃO INDEPENDENTES PARA CADA QUADRO
 function toggleDirSpi(i){
   const k = DIR_ORDER[i];
   openDirsSpi.has(k) ? openDirsSpi.delete(k) : openDirsSpi.add(k);
@@ -752,7 +785,6 @@ function render(){
   document.getElementById('statRascunho').textContent = statusCount.Rascunho;
   document.getElementById('statTotal').textContent = monthRecords.length;
 
-  // 1. SPI TABLE (QUADRINHO DE CIMA - METAS)
   const caretSpi=(i,o)=>`<span class="caret" onclick="event.stopPropagation();toggleDirSpi(${i})">${o?'▾':'▸'}</span>`;
   let tb='';
   DIR_ORDER.forEach((k,i)=>{
@@ -786,10 +818,7 @@ function render(){
     return s;
   };
 
-  // 2. GERADOS POR DIA (MATRIX TABLE)
   const caretMatrix=(i,o)=>`<span class="caret" onclick="event.stopPropagation();toggleDirMatrix(${i})">${o?'▾':'▸'}</span>`;
-  
-  // 3. GERADOS POR SEMANA (WEEK TABLE)
   const caretWeek=(i,o)=>`<span class="caret" onclick="event.stopPropagation();toggleDirWeek(${i})">${o?'▾':'▸'}</span>`;
 
   DIR_ORDER.forEach((k,i)=>{
@@ -799,7 +828,6 @@ function render(){
     const openW=openDirsWeek.has(k);
     const ws=wk(o.per);
 
-    // Linhas Matrix
     mr += `<tr class="dir-row"><td class="col-dir">${caretMatrix(i,openM)}${dirLabel(k)}</td>${cell(o.per, true)}<td class="col-total total-col">${o.total}</td></tr>`;
     if(openM) {
       regList(k,o).forEach(g=>{
@@ -808,7 +836,6 @@ function render(){
       });
     }
 
-    // Linhas Week
     wr += `<tr class="dir-row"><td>${caretWeek(i,openW)}${dirLabel(k)}</td>${ws.map(v=>`<td>${v||''}</td>`).join('')}<td>${o.total}</td></tr>`;
     if(openW) {
       regList(k,o).forEach(g=>{
@@ -824,7 +851,7 @@ function render(){
   document.getElementById('matrixTable').innerHTML = h1 + h2 + mr;
   document.getElementById('weekTable').innerHTML = '<tr><th>Diretoria</th>'+Array.from({length:numWeeks},(_,w)=>`<th>Sem. ${w+1}</th>`).join('')+'<th>Total</th></tr>'+wr;
 
-  const cumG=[], cumP=[]; let rg=0, rp=0;
+  const cumG=[], cumP []; let rg=0, rp=0;
   for(let d=1; d<=totalDays; d++){ 
     if(d<=lastDay){ rg+=totPer[d]; cumG.push(rg); } else cumG.push(null);
     keys.forEach(k=>{ rp+=getCalculatedDataForSpi(k,year,month).assDays[d]; }); 
@@ -850,15 +877,32 @@ function stamp(d){
   document.getElementById('fileStatus').textContent='Atualizado em: '+d.toLocaleDateString('pt-BR')+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
 }
 
+// Eventos de Upload
 document.getElementById('uploadBtn').onclick=()=>document.getElementById('fileInput').click();
 document.getElementById('fileInput').onchange=async e=>{
   const f=e.target.files[0];
   if(f){ await loadFromText(await f.text()); stamp(new Date()); }
 };
 
+document.getElementById('uploadDeparaBtn').onclick=()=>document.getElementById('deparaInput').click();
+document.getElementById('deparaInput').onchange=async e=>{
+  const f=e.target.files[0];
+  if(f){
+    const arrayBuffer = await f.arrayBuffer();
+    const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+    processDeParaWorkbook(workbook);
+    if(currentRecords.length > 0){
+      applyPlan();
+      currentRecords.forEach(r=>r._a=assign(r));
+      render();
+    }
+    alert('De-Para carregado com sucesso!');
+  }
+};
+
 (async function init(){
-  await loadDeParaExcel();    // Carrega o Excel de De-Para
-  await loadPlan();           // Carrega o planejamento JSON
+  await loadDeParaExcel();    
+  await loadPlan();           
   try{
     const res=await fetch(XML_NAME+'?t='+Date.now());
     if(res.ok){
