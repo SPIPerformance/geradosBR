@@ -72,7 +72,7 @@
 
   .grid-top{
     display:grid;grid-template-columns:minmax(280px, 340px) minmax(0, 1fr);gap:6px;margin-bottom:6px;
-    align-items:start;
+    align-items:stretch; /* Ajustado para esticar e igualar a altura dos dois lados */
   }
   .col-left{
     display:flex;flex-direction:column;gap:6px;min-width:0;
@@ -88,7 +88,7 @@
   .kpi .lbl{font-size:10px;color:var(--muted);margin-top:1px;font-weight:600;}
   .kpi-divider{width:1px;background:var(--line);}
 
-  .spi-card{padding:0; overflow-x:auto; -webkit-overflow-scrolling:touch;}
+  .spi-card{padding:0; overflow-x:auto; -webkit-overflow-scrolling:touch; flex:1;}
 
   table.spi-table{width:100%;border-collapse:collapse;font-size:10.5px;margin:0;min-width:300px;}
   table.spi-table th{
@@ -101,7 +101,7 @@
   table.spi-table tr.total-row td{background:var(--green-light);font-weight:800;color:var(--green-dark);border-top:2px solid var(--green);}
   .gap-cell{border-radius:4px;font-weight:700;padding:1px 2px;display:inline-block;min-width:32px;font-size:9.5px;color:#1c2b22;}
 
-  .chart-card{padding:6px 10px 2px;position:relative;display:flex;flex-direction:column;min-width:0;height:330px;overflow:hidden;}
+  .chart-card{padding:6px 10px 2px;position:relative;display:flex;flex-direction:column;min-width:0;height:100%;overflow:hidden;} /* Ajustado para 100% da altura da coluna */
   .chart-card h3{margin:0 0 2px;font-size:11.5px;color:var(--ink);font-weight:700;}
   .chart-wrap{flex:1;min-height:0;position:relative;}
 
@@ -339,7 +339,6 @@ function processDeParaWorkbook(workbook) {
   const sheetName = workbook.SheetNames[0];
   const worksheet = workbook.Sheets[sheetName];
   
-  // Localiza dinamicamente a linha de cabeçalho correta na planilha
   const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
   let headerRowIndex = 0;
   for (let i = 0; i < rows.length; i++) {
@@ -388,8 +387,6 @@ function processDeParaWorkbook(workbook) {
       }
     }
   });
-
-  console.log('De-Para carregado. Empreendimentos:', Object.keys(EXCEL_DEPARA_MAP).length);
 }
 
 async function loadDeParaExcel() {
